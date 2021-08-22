@@ -5,6 +5,9 @@ import com.queries.GrahpQLQueries;
 import io.restassured.http.ContentType;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
@@ -18,9 +21,10 @@ public class GraphQLTests {
      * Verify existing data with sample query
      */
     @Test
-    public void verifyCompanyData_checkCeo_shouldBeElonMusk(){
+    public void verifyCompanyData_checkCeo_shouldBeElonMusk() throws IOException {
+        String grapdhqlquery = getGraphQLFile("src/test/resources/queries/getCompanyDetails");
         GrahpQLQueries query = new GrahpQLQueries();
-        query.setQuery("{ company { name ceo coo } }");
+        query.setQuery(grapdhqlquery);
 
         given().
                 contentType(ContentType.JSON).
@@ -39,9 +43,10 @@ public class GraphQLTests {
      * Verify user data upon selecting user with ID for newly added user
      */
     @Test
-    public void selectUserById_verifyReturnedData(){
+    public void selectUserById_verifyReturnedData() throws IOException {
+        String addUserquery = getGraphQLFile("src/test/resources/queries/addUser");
         GrahpQLQueries add_user_query = new GrahpQLQueries();
-        add_user_query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!, $twitter: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket, twitter: $twitter}) { returning { id name rocket twitter } } }");
+        add_user_query.setQuery(addUserquery);
 
         User myUser = new User(
                 UUID.randomUUID(),
@@ -51,7 +56,6 @@ public class GraphQLTests {
         );
 
         add_user_query.setVariables(myUser);
-        System.out.println(add_user_query.getQuery().toString());
         String user_id = given().
                 contentType(ContentType.JSON).
                 body(add_user_query).
@@ -243,5 +247,11 @@ public class GraphQLTests {
                 body("data.users[0].name", is(myUser.getName())).
                 body("data.users[0].rocket", is(myUser.getRocket())).
                 body("data.users[0].twitter", is(myUser.getTwitter()));
+    }
+
+    public String getGraphQLFile(String filepath) throws IOException {
+        String data = "";
+        data = new String(Files.readAllBytes(Paths.get(filepath)));
+        return data;
     }
 }

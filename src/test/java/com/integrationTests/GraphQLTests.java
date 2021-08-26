@@ -3,6 +3,7 @@ package com.integrationTests;
 import com.mutations.User;
 import com.queries.GrahpQLQueries;
 import io.restassured.http.ContentType;
+import org.hamcrest.Matchers;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -13,12 +14,15 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.Matchers.*;
 
 public class GraphQLTests {
 
-    String user_id = "xyz";
+    String user_id = "";
+
     /**
-     * Verify existing data with sample query
+     * A simple graphQL query test to verify Company Details - CEO, Name
+     * @throws IOException
      */
     @Test
     public void verifyCompanyData_checkCeo_shouldBeElonMusk() throws IOException {
@@ -39,8 +43,10 @@ public class GraphQLTests {
                 body("data.company.name", is("SpaceX"));
     }
 
+
     /**
-     * Verify user data upon selecting user with ID for newly added user
+     * A simple graphQL query test to verify user data upon selecting user with ID for newly added user
+     * @throws IOException
      */
     @Test
     public void selectUserById_verifyReturnedData() throws IOException {
@@ -54,7 +60,7 @@ public class GraphQLTests {
                 "Space Odessy",
                 "@DarthVader"
         );
-
+        System.out.println("####################### INSERT USER #######################");
         add_user_query.setVariables(myUser);
         String user_id = given().
                 contentType(ContentType.JSON).
@@ -70,7 +76,6 @@ public class GraphQLTests {
                 body("data.insert_users.returning[0].id", equalTo(myUser.getId().toString())).
                 body("data.insert_users.returning[0].name", equalTo(myUser.getName())).
                 body("data.insert_users.returning[0].rocket", equalTo(myUser.getRocket())).
-                log().body().
                 extract().path("data.insert_users.returning[0].id");
 
 
@@ -83,6 +88,7 @@ public class GraphQLTests {
                 when().
                 post("https://api.spacex.land/graphql/").
                 then().
+                log().body().
                 assertThat().
                 statusCode(200).
                 and().
@@ -92,22 +98,23 @@ public class GraphQLTests {
     }
 
     /**
-     * Add a new user -  verify data upon retrun
+     * Test to verify insert Mutation - Returning fields, select User
      */
     @Test
     public void addUser_checkReturnedData_shouldCorrespondToDataSent(){
         GrahpQLQueries query = new GrahpQLQueries();
-        query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket}) { returning { id name rocket } } }");
+        query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!, $twitter: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket, twitter: $twitter}) { returning { id name rocket twitter } } }");
 
         User myUser = new User(
                 UUID.randomUUID(),
                 "Darth Vader",
-                "Space Odessy"
+                "Space Odessy",
+                "@DarthVader"
         );
-
+        System.out.println("####################### INSERT USER #######################");
         query.setVariables(myUser);
-
-        String user_id = given().
+        System.out.println();
+         user_id = given().
                 contentType(ContentType.JSON).
                 body(query).
                 when().
@@ -120,10 +127,10 @@ public class GraphQLTests {
                 body("data.insert_users.returning[0].name", equalTo(myUser.getName())).
                 body("data.insert_users.returning[0].rocket", equalTo(myUser.getRocket())).log().body().extract().path("data.insert_users.returning[0].id");
 
-
+        System.out.println("####################### SELECT USER #######################");
         user_id="\""+user_id+"\"";
         query.setQuery("{users_by_pk(id: "+user_id+") { id name rocket } }");
-        System.out.println(query.getQuery());
+
         given().
                 contentType(ContentType.JSON).
                 body(query).
@@ -143,35 +150,22 @@ public class GraphQLTests {
      */
     @Test
     public void updateUser_checkReturnedData(){
-        // mutation { update_users(where: {id: {_eq: ""}}, _set: {name: "Tyrone") }
-
-        GrahpQLQueries insert_query = new GrahpQLQueries();
-        insert_query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket}) { returning { id name rocket } } }");
 
         User myUser = new User(
                 UUID.randomUUID(),
                 "Darth Vader",
-                "Space Odessy"
+                "Space Odessy",
+                "@DarthVader"
         );
 
-        insert_query.setVariables(myUser);
+        //added user
+        addUser(myUser);
 
-        String user_id = given().
-                contentType(ContentType.JSON).
-                body(insert_query).
-                when().
-                post("https://api.spacex.land/graphql/").
-                then().
-                assertThat().
-                statusCode(200).
-                and().
-                body("data.insert_users.returning[0].id", equalTo(myUser.getId().toString())).
-                body("data.insert_users.returning[0].name", equalTo(myUser.getName())).
-                body("data.insert_users.returning[0].rocket", equalTo(myUser.getRocket())).log().body().extract().path("data.insert_users.returning[0].id");
-
+        System.out.println("####################### UPDATE USER #######################");
         GrahpQLQueries update_query = new GrahpQLQueries();
-        String name = "newname";
-        update_query.setQuery("mutation {update_users(where: {id: {_eq: \""+user_id+"\"}}, _set: {name: \""+name+"\"}) {affected_rows}}");
+        String updatedName = "Mandalorian";
+        update_query.setQuery("mutation {update_users(where: {id: {_eq: \""+user_id+"\"}}, " +
+                "_set: {name: \""+updatedName+"\"}) {affected_rows}}");
         System.out.println(update_query.getQuery());
 
         given().
@@ -180,8 +174,27 @@ public class GraphQLTests {
                 when().
                 post("https://api.spacex.land/graphql/").
                 then().
+                log().body().
                 assertThat().
-                statusCode(200).log().body();
+                statusCode(200);
+
+        System.out.println("####################### SELECT USER #######################");
+        GrahpQLQueries select_user_query = new GrahpQLQueries();
+        select_user_query.setQuery("{ users(where: {id: {_eq: \""+user_id+"\"}}) { id name rocket timestamp twitter } }");
+
+        given().
+                contentType(ContentType.JSON).
+                body(select_user_query).
+                when().
+                post("https://api.spacex.land/graphql/").
+                then().
+                log().body().
+                assertThat().
+                statusCode(200).
+                and().
+                body("data.users[0].name", is(updatedName)).
+                body("data.users[0].rocket", is(myUser.getRocket())).
+                body("data.users[0].twitter", is(myUser.getTwitter()));
     }
 
     /**
@@ -189,9 +202,18 @@ public class GraphQLTests {
      */
     @Test
     public void deleteUser_checkAffectedRows(){
+        User myUser = new User(
+                UUID.randomUUID(),
+                "Darth Vader",
+                "Space Odessy",
+                "@Darth Vader"
+        );
 
-        addUser();
+        //added user
+        addUser(myUser);
 
+        //Delete user
+        System.out.println("####################### DELETE MUTATION #######################");
         GrahpQLQueries delete_query = new GrahpQLQueries();
         delete_query.setQuery("mutation { delete_users(where: {id: {_eq: \""+user_id+"\"}}) { affected_rows } }");
 
@@ -201,36 +223,45 @@ public class GraphQLTests {
                 when().
                 post("https://api.spacex.land/graphql/").
                 then().
+                log().body().
                 assertThat().
                 statusCode(200).
-                log().body();
+                and().
+                body("data.delete_users.affected_rows", equalTo(1));
+
+
+        //Select user
+        System.out.println("####################### SELECT USER #######################");
+        GrahpQLQueries select_user_query = new GrahpQLQueries();
+        select_user_query.setQuery("{ users(where: {id: {_eq: \""+user_id+"\"}}) { id name rocket timestamp twitter } }");
+
+        given().
+                contentType(ContentType.JSON).
+                body(select_user_query).
+                when().
+                post("https://api.spacex.land/graphql/").
+                then().
+                log().body().
+                assertThat().
+                statusCode(200).
+                and().
+                body("data.users", hasSize(0));
     }
 
 
-    public void addUser(){
+    public void addUser(User user){
         GrahpQLQueries insert_query = new GrahpQLQueries();
-        insert_query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket}) { returning { id name rocket } } }");
+        insert_query.setQuery("mutation insert_users ($id: uuid!, $name: String!, $rocket: String!, $twitter: String!) { insert_users(objects: {id: $id, name: $name, rocket: $rocket, twitter: $twitter}) { returning { id name rocket twitter } } }");
 
-        User myUser = new User(
-                UUID.randomUUID(),
-                "Darth Vader",
-                "Space Odessy"
-        );
-
-        insert_query.setVariables(myUser);
-
+        insert_query.setVariables(user);
+        System.out.println("####################### INSERT USER #######################");
          user_id = given().
                 contentType(ContentType.JSON).
                 body(insert_query).
                 when().
                 post("https://api.spacex.land/graphql/").
                 then().
-                assertThat().
-                statusCode(200).
-                and().
-                body("data.insert_users.returning[0].id", equalTo(myUser.getId().toString())).
-                body("data.insert_users.returning[0].name", equalTo(myUser.getName())).
-                body("data.insert_users.returning[0].rocket", equalTo(myUser.getRocket())).log().body().extract().path("data.insert_users.returning[0].id");
+                log().body().extract().path("data.insert_users.returning[0].id");
 
         GrahpQLQueries select_user_query = new GrahpQLQueries();
         select_user_query.setQuery("{ users(where: {id: {_eq: \""+user_id+"\"}}) { id name rocket timestamp twitter } }");
@@ -242,11 +273,7 @@ public class GraphQLTests {
                 post("https://api.spacex.land/graphql/").
                 then().
                 assertThat().
-                statusCode(200).
-                and().
-                body("data.users[0].name", is(myUser.getName())).
-                body("data.users[0].rocket", is(myUser.getRocket())).
-                body("data.users[0].twitter", is(myUser.getTwitter()));
+                statusCode(200);
     }
 
     public String getGraphQLFile(String filepath) throws IOException {
